@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.pth
+.cache/
+RetinaNet_Treinamentos_*/
+README.md

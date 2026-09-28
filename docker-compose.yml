@@ -1,0 +1,72 @@
+x-build-args: &build-args
+  CUDA_VERSION: ${CUDA_VERSION:-12.6.3}
+  PYTHON_VERSION: ${PYTHON_VERSION:-3.12}
+  TORCH_CUDA: ${TORCH_CUDA:-cu126}
+  TORCH_VERSION: ${TORCH_VERSION:-2.9.1}
+  TORCHVISION_VERSION: ${TORCHVISION_VERSION:-0.24.1}
+  DETECTRON2_REF: ${DETECTRON2_REF:-main}
+  TORCH_CUDA_ARCH_LIST: ${TORCH_CUDA_ARCH_LIST:-7.5;8.0;8.6;8.9;9.0+PTX}
+  MAX_JOBS: ${MAX_JOBS:-8}
+
+x-environment: &environment
+  DATASET_ROOT: /workspace/datasets
+  DATASET_NAME: ${DATASET_NAME:-Torso21}
+  VAL_RATIO: ${VAL_RATIO:-0.20}
+  TEST_RATIO: ${TEST_RATIO:-0.10}
+  FORCE_SINGLE_CLASS: ${FORCE_SINGLE_CLASS:-false}
+  SINGLE_CLASS_NAME: ${SINGLE_CLASS_NAME:-object}
+  SINGLE_CLASS_ID: ${SINGLE_CLASS_ID:-0}
+  MODEL_CONFIG: ${MODEL_CONFIG:-COCO-Detection/retinanet_R_50_FPN_3x.yaml}
+  MAX_ITER: ${MAX_ITER:-300}
+  BASE_LR: ${BASE_LR:-0.00025}
+  IMGS_PER_BATCH: ${IMGS_PER_BATCH:-2}
+  NUM_WORKERS: ${NUM_WORKERS:-2}
+  DEVICE: ${DEVICE:-cuda}
+  SEED: ${SEED:--1}
+  SCORE_THRESH: ${SCORE_THRESH:-0.5}
+  OUTPUT_DIR: ${OUTPUT_DIR:-}
+  FIX_DATASET: ${FIX_DATASET:-true}
+  DO_TRAIN: ${DO_TRAIN:-true}
+  DO_EVAL: ${DO_EVAL:-true}
+  DO_ANALYSIS: ${DO_ANALYSIS:-true}
+
+x-gpu: &gpu
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: ${GPU_COUNT:-all}
+            capabilities: [gpu]
+
+x-common: &common
+  user: "${UID:-1000}:${GID:-1000}"
+  shm_size: ${SHM_SIZE:-8gb}
+  working_dir: /workspace/app
+  volumes:
+    - ./:/workspace/app
+    - ${DATASET_HOST_DIR:-../Dateset}:/workspace/datasets
+
+services:
+  train:
+    <<: [*common, *gpu]
+    image: retinanet-trainer:${TORCH_CUDA:-cu126}
+    build:
+      context: .
+      args: *build-args
+    environment: *environment
+
+  train-cpu:
+    <<: *common
+    profiles: ["cpu"]
+    image: retinanet-trainer:cpu
+    build:
+      context: .
+      args:
+        <<: *build-args
+        BASE_IMAGE: ubuntu:22.04
+        TORCH_CUDA: cpu
+        FORCE_CUDA: "0"
+    environment:
+      <<: *environment
+      DEVICE: cpu
